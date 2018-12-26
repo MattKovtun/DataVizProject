@@ -3,6 +3,7 @@ from dash.dependencies import Input, Output
 import dash_html_components as html
 import dash_core_components as dcc
 import plotly.graph_objs as go
+import pandas as pd
 
 from main import select_specifics
 
@@ -10,36 +11,49 @@ app = Dash(__name__)
 
 filename = "music.csv"
 df = select_specifics(filename)
+df = df.loc[~(df == 0).any(axis=1)]
+# df = df.dropna() # if want to use 'hottest'
+
+
+def select_by_vals(vals, ddf):
+    cond = (ddf["terms"] == vals[0])
+    for cat in vals[1:]:
+        cond |= (ddf["terms"] == cat)
+    return cond
+
+
+def bin_data(ddf):
+    data = []
+    bins = [i for i in range(40, 231, 10)]
+    labels = [str(i) for i in bins[:-1]]
+    for term in ddf["terms"].unique():
+        cond = select_by_vals([term], ddf)
+        binned = pd.cut(ddf[cond]['tempo'], bins=bins, labels=labels)
+        data.append(ddf[cond].groupby(binned).size())
+
+    return data
 
 
 def generate_graph():
-    # print(df["tempo"])
-    # print(df["song.hotttnesss"])
-    ddf = df.loc[~(df == 0).any(axis=1)]
-    ddf = ddf.dropna()
+    vals = ["latin jazz", "hip hop", "blues-rock"]
 
-    categories = ["latin jazz", "hip hop", "blues-rock"]
+    cond = select_by_vals(vals, df)
 
-    cond = (ddf["terms"] == categories[0])
-    for cat in categories[1:]:
-        cond |= (ddf["terms"] == cat)
-
-    ddf = ddf[cond].sort_values("tempo", ascending=True)
-
-    # print(ddf[ddf["terms"] == "hip hop"]["tempo"].tolist())
+    ddf = df[cond]
+    ddf = ddf.sort_values("tempo", ascending=True)
 
 
-    colors = ["red", "green", "blue"]
+    binned = bin_data(ddf)
 
     return {'data':
         [
             go.Scatter(
-                x=ddf[ddf["terms"] == term]["tempo"],
-                y=ddf[ddf["terms"] == term]["song.hotttnesss"],
-                text=ddf[ddf["terms"] == term]["artist.name"],
-                mode='lines',
-                name=term
-            ) for term in ddf["terms"].unique()
+                x=list(binned[t].keys()),
+                y=list(binned[t]),
+                name=ddf['terms'].unique()[t],
+                fill='tozeroy',
+                mode='lines'
+            ) for t in range(len(binned))
 
         ],
         'layout': go.Layout()}
