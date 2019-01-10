@@ -4,61 +4,62 @@ import dash_core_components as dcc
 import plotly.graph_objs as go
 
 import pandas as pd
-from config import line_colors
+from config import line_colors, text_colors
 
 file = "twenty_one_pilots.csv"
 df = pd.read_csv(file, skipinitialspace=True)
 
 app = Dash(__name__)
-# for i, album in enumerate(df["Album"].unique()):
-#     print(df["Song"][df["Album"] == album].values)
+
+top_songs = {"Trench": ["Jumpsuit", "My Blood", "Neon Gravestones"],
+             "Vessel": ["Migraine", "Car Radio", "Guns for Hands"],
+             "Blurryface": ["Heavydirtysoul", "Stressed Out", "Tear in My Heart"]}
+
 
 def generate_graph():
-    return {'data':
-        [
-            go.Scatter(
-                x=df["Index"][df["Album"] == album],
-                y=df["BPM"][df["Album"] == album],
-                mode='lines+markers',
-                line=dict(color=line_colors[i]),
-                name=album
+    data = [
+        go.Scatter(
+            x=df["Index"][df["Album"] == album],
+            y=df["BPM"][df["Album"] == album],
+            mode='lines+markers',
+            line=dict(color=line_colors[i]),
+            text=df["Song"][df["Album"] == album],
+            name=album,
+            hoverinfo='y+text'
 
-            ) for i, album in enumerate(df["Album"].unique())
+        ) for i, album in enumerate(df["Album"].unique())
+    ]
+    [data.append(
+        go.Scatter(
+            x=df["Index"][df["Album"] == album],
+            y=df["BPM"][df["Album"] == album],
+            mode='markers+text',
+            line=dict(color=line_colors[i]),
+            text=[song if song in top_songs[album] else None for song in df["Song"][df["Album"] == album]],
+            textposition="top center",
+            hoverinfo='none',
+            showlegend=False,
+            textfont=dict(
+                family="Open Sans",
+                size=15,
+                color=text_colors[i]
+            )
+        )
+    ) for i, album in enumerate(df["Album"].unique())]
 
-        ],
-        'layout': go.Layout(
-            # annotations=[
-            #     dict(
-            #         x=5,
-            #         y=85,
-            #         xref='x',
-            #         yref='y',
-            #         text='max=5',
-            #
-            #         font=dict(
-            #             family='Courier New, monospace',
-            #             size=16,
-            #             color='#ffffff'
-            #         ),
-            #         align='center',
-            #         arrowhead=2,
-            #         arrowsize=1,
-            #         arrowwidth=2,
-            #         arrowcolor='#636363',
-            #         ax=20,
-            #         ay=-30,
-            #         bordercolor='#c7c7c7',
-            #         borderwidth=2,
-            #         borderpad=4,
-            #         bgcolor='#ff7f0e',
-            #         opacity=0.8
-            #     )
-            # ]
-        )}
+    return {'data': data,
+            'layout': go.Layout(
+                yaxis=dict(range=[65, 185]),
+                title='Розподіл останніх альбомів "twenty one pilots" за темпами'
+            )}
 
 
 app.layout = html.Div([
-    dcc.Graph(id='graph', figure=generate_graph())
+    dcc.Graph(id='graph',
+              figure=generate_graph(),
+              config={
+                  'displayModeBar': False
+              })
 ],
     style={"max-width": "1140px",
            "margin": "auto",
@@ -66,4 +67,4 @@ app.layout = html.Div([
 )
 
 if __name__ == "__main__":
-    app.run_server(debug=True)
+    app.run_server(debug=True, port=8080, host='0.0.0.0')
